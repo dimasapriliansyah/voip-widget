@@ -309,7 +309,7 @@ export default class BasicSpeedDial extends React.Component {
           this.setState((state) => ({
             oSipDTMFPressed: state.oSipDTMFPressed + pad,
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }
@@ -587,7 +587,7 @@ const ModalAgree = (props) => {
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle sx={{ fontSize: "0.95rem" }}>
-        Agree with terms & conditions
+        Terms & Conditions
         <IconButton
           aria-label="close"
           onClick={onClose}
@@ -602,18 +602,19 @@ const ModalAgree = (props) => {
       </DialogTitle>
       <Divider />
       <DialogContent sx={{ width: "500px", height: "400px" }}>
-        <Box>
-          <ol>
-            <li>
-              Dengan menggunakan layanan Click to Dial ini, maka anda telah
-              menyetujui bahwa percakapan anda kami rekam.
-            </li>
-            <li>
-              Petugas berhak untuk mengakhiri percakapan lebih awal jika dalam
-              interaksi terdapat unsur SARA, Seksual, dan perbuatan tidak
-              menyenangkan.
-            </li>
-          </ol>
+        <Box sx={{ backgroundColor: '#f4f4f4', width: "500px", height: "400px" }}>
+
+          <Typography fontSize={14}>
+            1.Dengan menggunakan layanan Click to Dial ini, maka anda telah
+            menyetujui bahwa percakapan anda kami rekam.
+          </Typography>
+          <br></br>
+          <Typography fontSize={14}>
+            2.Petugas berhak untuk mengakhiri percakapan lebih awal jika dalam
+            interaksi terdapat unsur SARA, Seksual, dan perbuatan tidak
+            menyenangkan.
+          </Typography>
+
         </Box>
       </DialogContent>
     </Dialog>
