@@ -247,7 +247,7 @@ export default class BasicSpeedDial extends React.Component {
         oSipSessionCall: oSipSessionCall,
       });
 
-      const callResult = this.state.oSipSessionCall.call("60115400", {
+      const callResult = this.state.oSipSessionCall.call(process.env.REACT_APP_VOIP_DIAL_NUMBER, {
         events_listener: {
           events: "*",
           listener: this.onSipCallSession,
@@ -260,6 +260,14 @@ export default class BasicSpeedDial extends React.Component {
         oSipLastEvent: {
           type: e.type,
           description: "Setting up, please wait it may take a while",
+        },
+      });
+    }
+    if (e.type === "stopped") {
+      this.setState({
+        oSipLastEvent: {
+          type: e.type,
+          description: "Call finished",
         },
       });
     }
@@ -507,7 +515,7 @@ export default class BasicSpeedDial extends React.Component {
             >
               <Grid item xs={6}>
                 <Button
-                  disabled={!this.state.oSipIsConnected}
+                  disabled={!this.state.oSipIsConnected || this.state.oSipIsCallFinished}
                   onClick={() => this.sipToggleMute()}
                   fullWidth
                   variant={this.state.oSipIsMuted ? "contained" : "outlined"}
@@ -520,7 +528,7 @@ export default class BasicSpeedDial extends React.Component {
               </Grid>
               <Grid item xs={6}>
                 <Button
-                  disabled={!this.state.oSipIsConnected}
+                  disabled={!this.state.oSipIsConnected || this.state.oSipIsCallFinished}
                   onClick={() => this.sipHangUp()}
                   fullWidth
                   color="error"
