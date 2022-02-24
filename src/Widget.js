@@ -33,6 +33,8 @@ import ContactSupportIcon from "@mui/icons-material/ContactSupport";
 import PhoneDisabledIcon from "@mui/icons-material/PhoneDisabled";
 import MicOffIcon from "@mui/icons-material/MicOff";
 import MicIcon from "@mui/icons-material/Mic";
+import CryptoJS from "crypto-js";
+
 
 import DTMFSound from "./assets/dtmf.wav";
 
@@ -83,6 +85,15 @@ export default class BasicSpeedDial extends React.Component {
 
     this.state = {
       showDialForm: false,
+      reqExten: {
+        token: "",
+        exten: "",
+        secret: "",
+        callto: "",
+        sip: "",
+        rtc: "",
+        api: "",
+      },
       isLoadingSetupWebphone: false,
       openSpeedDial: false,
       openModal: false,
@@ -110,11 +121,75 @@ export default class BasicSpeedDial extends React.Component {
 
   componentDidMount() {
     document.addEventListener("mousedown", this.handleClickOutside);
+
+    var myHeaders = new Headers();
+    myHeaders.append("Authorization", "Basic ZGVtbzoxbmYwbWVkaUA=");
+    myHeaders.append("Content-Type", "application/json");
+
+    var raw = JSON.stringify({
+      email: process.env.REACT_APP_EXTEN_EMAIL,
+      username: process.env.REACT_APP_EXTEN_USERNAME,
+      token: process.env.REACT_APP_EXTEN_TOKEN,
+      type: process.env.REACT_APP_EXTEN_TYPE
+    });
+
+    var requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      body: raw,
+      redirect: 'follow'
+    };
+
+    fetch(process.env.REACT_APP_EXTEN_URL, requestOptions)
+      .then(response => response.text())
+      .then(result => {
+        const decryptText = this.decrypt(result)
+        const decrypted = JSON.parse(decryptText)
+
+        this.setState({
+          reqExten: {
+            token: decrypted.token,
+            exten: decrypted.exten,
+            secret: decrypted.secret,
+            callto: decrypted.callto,
+            sip: decrypted.sip,
+            rtc: decrypted.rtc,
+            api: decrypted.api,
+          },
+        });
+
+      })
+      .catch(error => console.log('error', error));
   }
 
   componentWillUnmount() {
     document.removeEventListener("mousedown", this.handleClickOutside);
   }
+
+  decrypt(val) {
+    try {
+      const IV = process.env.REACT_APP_DECODE_IV;
+      const KEY = process.env.REACT_APP_DECODE_KEY;
+      var encrypted = CryptoJS.enc.Base64.parse(val);
+      var key = CryptoJS.enc.Utf8.parse(KEY);
+      var iv = CryptoJS.enc.Utf8.parse(IV);
+
+      var decrypted = CryptoJS.AES.decrypt(
+        {
+          ciphertext: encrypted,
+        },
+        key,
+        {
+          iv: iv,
+          mode: CryptoJS.mode.CTR,
+          padding: CryptoJS.pad.NoPadding,
+        }
+      );
+      return decrypted.toString(CryptoJS.enc.Utf8);
+    } catch (err) {
+      return false;
+    }
+  };
 
   handleClickOutside(event) {
     if (this.wrapperRef && !this.wrapperRef.current.contains(event.target)) {
@@ -183,12 +258,12 @@ export default class BasicSpeedDial extends React.Component {
       this.openModal();
 
       const config = {
-        realm: process.env.REACT_APP_VOIP_REALM,
-        impi: process.env.REACT_APP_VOIP_USER,
-        impu: process.env.REACT_APP_VOIP_PUBLIC,
-        password: process.env.REACT_APP_VOIP_PASSWORD,
-        display_name: process.env.REACT_APP_VOIP_USER,
-        websocket_proxy_url: process.env.REACT_APP_VOIP_WEBSOCKET_PROXY_URL,
+        realm: this.state.reqExten.sip,
+        impi: this.state.reqExten.exten,
+        impu: `sip:${this.state.reqExten.exten}@${this.state.reqExten.sip}`,
+        password: this.state.reqExten.secret,
+        display_name: this.state.reqExten.exten,
+        websocket_proxy_url: this.state.reqExten.rtc,
         outbound_proxy_url: "",
         ice_servers: "",
         enable_rtcweb_breaker: false,
@@ -247,7 +322,7 @@ export default class BasicSpeedDial extends React.Component {
         oSipSessionCall: oSipSessionCall,
       });
 
-      const callResult = this.state.oSipSessionCall.call(process.env.REACT_APP_VOIP_DIAL_NUMBER, {
+      const callResult = this.state.oSipSessionCall.call(this.state.reqExten.callto, {
         events_listener: {
           events: "*",
           listener: this.onSipCallSession,
