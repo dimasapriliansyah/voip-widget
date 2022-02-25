@@ -68,7 +68,7 @@ const CssTextField = styled(TextField)({
   },
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
-      borderColor: "#005f73",
+      borderColor: "#EF5A22",
     },
     "&:hover fieldset": {
       borderColor: "#001219",
@@ -145,6 +145,8 @@ export default class BasicSpeedDial extends React.Component {
       .then(result => {
         const decryptText = this.decrypt(result)
         const decrypted = JSON.parse(decryptText)
+
+        console.log("decrypted>>>", decrypted)
 
         this.setState({
           reqExten: {
@@ -439,7 +441,7 @@ export default class BasicSpeedDial extends React.Component {
             }}
           >
             <CardHeader
-              sx={{ bgcolor: "#005f73" }}
+              sx={{ bgcolor: "#EF5A22" }}
               avatar={
                 <Avatar sx={{ bgcolor: "#0a9396" }}>
                   <ContactSupportIcon />
@@ -547,14 +549,14 @@ export default class BasicSpeedDial extends React.Component {
         >
           <SpeedDialAction
             sx={{
-              bgcolor: "#005F73",
+              bgcolor: "#EF5A22",
               color: "#FFFFFF",
               "&:hover": {
-                bgcolor: "#005F73",
+                bgcolor: "#EF5A22",
                 color: "#FFFFFF",
               },
               "&:focus": {
-                bgcolor: "#005F73",
+                bgcolor: "#EF5A22",
                 color: "#FFFFFF",
               },
             }}
