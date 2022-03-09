@@ -68,7 +68,7 @@ const CssTextField = styled(TextField)({
   },
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
-      borderColor: "#EF5A22",
+      borderColor: "#E6232C",
     },
     "&:hover fieldset": {
       borderColor: "#001219",
@@ -84,6 +84,8 @@ export default class BasicSpeedDial extends React.Component {
     super(props);
 
     this.state = {
+      inputName: '',
+      inputEmail: '',
       showDialForm: false,
       reqExten: {
         token: "",
@@ -117,21 +119,31 @@ export default class BasicSpeedDial extends React.Component {
     this.onSipEventStack = this.onSipEventStack.bind(this);
     this.onSipEventSession = this.onSipEventSession.bind(this);
     this.onSipCallSession = this.onSipCallSession.bind(this);
+    this.handleInputName = this.handleInputName.bind(this);
+    this.handleInputEmail = this.handleInputEmail.bind(this);
   }
 
   componentDidMount() {
     document.addEventListener("mousedown", this.handleClickOutside);
+  }
 
+  componentWillUnmount() {
+    document.removeEventListener("mousedown", this.handleClickOutside);
+  }
+
+  requestExtension() {
     var myHeaders = new Headers();
     myHeaders.append("Authorization", "Basic ZGVtbzoxbmYwbWVkaUA=");
     myHeaders.append("Content-Type", "application/json");
 
     var raw = JSON.stringify({
-      email: process.env.REACT_APP_EXTEN_EMAIL,
-      username: process.env.REACT_APP_EXTEN_USERNAME,
+      username: this.state.inputName,
+      email: this.state.inputEmail,
       token: process.env.REACT_APP_EXTEN_TOKEN,
       type: process.env.REACT_APP_EXTEN_TYPE
     });
+
+    console.log("this.state.input>>>", this.state.input)
 
     var requestOptions = {
       method: 'POST',
@@ -140,7 +152,7 @@ export default class BasicSpeedDial extends React.Component {
       redirect: 'follow'
     };
 
-    fetch(process.env.REACT_APP_EXTEN_URL, requestOptions)
+    return fetch(process.env.REACT_APP_EXTEN_URL, requestOptions)
       .then(response => response.text())
       .then(result => {
         const decryptText = this.decrypt(result)
@@ -162,10 +174,6 @@ export default class BasicSpeedDial extends React.Component {
 
       })
       .catch(error => console.log('error', error));
-  }
-
-  componentWillUnmount() {
-    document.removeEventListener("mousedown", this.handleClickOutside);
   }
 
   decrypt(val) {
@@ -192,6 +200,18 @@ export default class BasicSpeedDial extends React.Component {
       return false;
     }
   };
+
+  handleInputName(e) {
+    this.setState({
+      inputName: e.target.value
+    })
+  }
+
+  handleInputEmail(e) {
+    this.setState({
+      inputEmail: e.target.value
+    })
+  }
 
   handleClickOutside(event) {
     if (this.wrapperRef && !this.wrapperRef.current.contains(event.target)) {
@@ -244,8 +264,10 @@ export default class BasicSpeedDial extends React.Component {
     if (existingScript && callback) callback();
   }
 
-  initiateWebphone(e) {
+  async initiateWebphone(e) {
     e.preventDefault();
+
+    await this.requestExtension();
 
     document.removeEventListener("mousedown", this.handleClickOutside);
 
@@ -441,9 +463,9 @@ export default class BasicSpeedDial extends React.Component {
             }}
           >
             <CardHeader
-              sx={{ bgcolor: "#EF5A22" }}
+              sx={{ bgcolor: "#E6232C" }}
               avatar={
-                <Avatar sx={{ bgcolor: "#0a9396" }}>
+                <Avatar sx={{ bgcolor: "#01A3DE" }}>
                   <ContactSupportIcon />
                 </Avatar>
               }
@@ -459,6 +481,8 @@ export default class BasicSpeedDial extends React.Component {
               <Container>
                 <form onSubmit={(e) => this.initiateWebphone(e)}>
                   <CssTextField
+                    value={this.state.inputName}
+                    onChange={(e) => this.handleInputName(e)}
                     disabled={this.state.isLoadingSetupWebphone}
                     fullWidth
                     required
@@ -469,6 +493,8 @@ export default class BasicSpeedDial extends React.Component {
                     margin="dense"
                   />
                   <CssTextField
+                    value={this.state.inputEmail}
+                    onChange={(e) => this.handleInputEmail(e)}
                     disabled={this.state.isLoadingSetupWebphone}
                     fullWidth
                     required
@@ -549,14 +575,14 @@ export default class BasicSpeedDial extends React.Component {
         >
           <SpeedDialAction
             sx={{
-              bgcolor: "#EF5A22",
+              bgcolor: "#E6232C",
               color: "#FFFFFF",
               "&:hover": {
-                bgcolor: "#EF5A22",
+                bgcolor: "#E6232C",
                 color: "#FFFFFF",
               },
               "&:focus": {
-                bgcolor: "#EF5A22",
+                bgcolor: "#E6232C",
                 color: "#FFFFFF",
               },
             }}
