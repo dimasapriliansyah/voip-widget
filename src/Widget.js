@@ -1,6 +1,8 @@
+import 'regenerator-runtime/runtime'
 import * as React from "react";
 
 import { styled } from "@mui/material/styles";
+import Countdown from 'react-countdown';
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Card from "@mui/material/Card";
@@ -105,12 +107,14 @@ export default class BasicSpeedDial extends React.Component {
         description: "",
       },
       oSipSessionCall: null,
+      oSipSessionRegister: null,
       oSipIsMuted: false,
       oSipIsConnected: false,
       oSipIsCallFinished: false,
       oSipIsMutedError: "",
       oSipDTMFPressed: "",
       modalAgree: false,
+      showCountdown: true
     };
 
     this.wrapperRef = React.createRef();
@@ -121,6 +125,7 @@ export default class BasicSpeedDial extends React.Component {
     this.onSipCallSession = this.onSipCallSession.bind(this);
     this.handleInputName = this.handleInputName.bind(this);
     this.handleInputEmail = this.handleInputEmail.bind(this);
+    this.rendererCountdown = this.rendererCountdown.bind(this);
   }
 
   componentDidMount() {
@@ -264,6 +269,24 @@ export default class BasicSpeedDial extends React.Component {
     if (existingScript && callback) callback();
   }
 
+  rendererCountdown({ hours, minutes, seconds, completed }) {
+    let secondWithPadding = seconds
+    let minuteWithPadding = minutes
+
+    if (seconds < 10) {
+      secondWithPadding = '0' + seconds
+    }
+    if (minutes < 10) {
+      minuteWithPadding = '0' + minutes
+    }
+
+    return (
+      <Typography sx={{ mt: 1 }} textAlign="center" fontSize="bold">
+        {minuteWithPadding}:{secondWithPadding}
+      </Typography>
+    )
+  }
+
   async initiateWebphone(e) {
     e.preventDefault();
 
@@ -324,6 +347,24 @@ export default class BasicSpeedDial extends React.Component {
     });
 
     if (e.type === "started") {
+
+      const oSipSessionRegister = this.state.oSipStack.newSession('register', {
+        expires: 200,
+        events_listener: { events: '*', listener: this.onSipEventSession },
+        sip_caps: [
+          { name: '+g.oma.sip-im', value: null },
+          //{ name: '+sip.ice' }, // rfc5768: FIXME doesn't work with Polycom TelePresence
+          { name: '+audio', value: null },
+          { name: 'language', value: '"id,en"' }
+        ]
+      });
+
+      this.setState({
+        oSipSessionRegister: oSipSessionRegister
+      })
+
+      this.state.oSipSessionRegister.register();
+
       const oConfigCall = {
         audio_remote: document.getElementById("audio_remote"),
         bandwidth: undefined,
@@ -358,7 +399,7 @@ export default class BasicSpeedDial extends React.Component {
       this.setState({
         oSipLastEvent: {
           type: e.type,
-          description: "Setting up, please wait it may take a while",
+          description: "Call in progress, please wait",
         },
       });
     }
@@ -373,7 +414,6 @@ export default class BasicSpeedDial extends React.Component {
   }
 
   onSipEventSession(e) {
-    console.log("Event onSipEventSession", e);
 
     this.setState({
       oSipLastEvent: {
@@ -392,6 +432,11 @@ export default class BasicSpeedDial extends React.Component {
         description: e.description,
       },
     });
+    if(e.type === "i_ao_request"){
+      this.setState({
+        showCountdown: false
+      })
+    }
     if (e.type === "m_stream_audio_remote_added") {
       this.setState({
         oSipIsConnected: true,
@@ -423,10 +468,10 @@ export default class BasicSpeedDial extends React.Component {
 
   sipHangUp() {
     if (this.state.oSipSessionCall) {
-      this.state.oSipSessionCall.hangup({
+      this.state.oSipStack.stop({
         events_listener: { events: "*", listener: this.onSipEventSession },
       });
-      this.state.oSipStack.stop({
+      this.state.oSipSessionCall.hangup({
         events_listener: { events: "*", listener: this.onSipEventSession },
       });
       this.setState({ oSipIsCallFinished: true });
@@ -610,6 +655,10 @@ export default class BasicSpeedDial extends React.Component {
             <Typography textAlign="center" fontStyle={"italic"}>
               {this.state.oSipLastEvent.description}
             </Typography>
+            <>{this.state.showCountdown && <Countdown
+              date={Date.now() + 60000}
+              renderer={this.rendererCountdown}
+            />}</>
             <Grid
               container
               rowSpacing={1}
