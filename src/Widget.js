@@ -2,7 +2,6 @@ import 'regenerator-runtime/runtime'
 import * as React from "react";
 
 import { styled } from "@mui/material/styles";
-import Countdown from 'react-countdown';
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Card from "@mui/material/Card";
@@ -63,14 +62,14 @@ const actions = [{ icon: <PhoneInTalkIcon />, name: "Call" }];
 
 const CssTextField = styled(TextField)({
   "& label.Mui-focused": {
-    color: "##1665C0",
+    color: "#1665C0",
   },
   "& .MuiInput-underline:after": {
     borderBottomColor: "#1665C0",
   },
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
-      borderColor: "#E6232C",
+      borderColor: process.env.REACT_APP_COLOR_PRIMARY,
     },
     "&:hover fieldset": {
       borderColor: "#001219",
@@ -107,14 +106,16 @@ export default class BasicSpeedDial extends React.Component {
         description: "",
       },
       oSipSessionCall: null,
-      oSipSessionRegister: null,
+      // oSipSessionRegister: null,
       oSipIsMuted: false,
       oSipIsConnected: false,
       oSipIsCallFinished: false,
       oSipIsMutedError: "",
       oSipDTMFPressed: "",
       modalAgree: false,
-      showCountdown: true
+      showCountdown: false,
+      minutes: 0,
+      seconds: 40,
     };
 
     this.wrapperRef = React.createRef();
@@ -125,7 +126,7 @@ export default class BasicSpeedDial extends React.Component {
     this.onSipCallSession = this.onSipCallSession.bind(this);
     this.handleInputName = this.handleInputName.bind(this);
     this.handleInputEmail = this.handleInputEmail.bind(this);
-    this.rendererCountdown = this.rendererCountdown.bind(this);
+    this.startTimer = this.startTimer.bind(this);
   }
 
   componentDidMount() {
@@ -133,6 +134,7 @@ export default class BasicSpeedDial extends React.Component {
   }
 
   componentWillUnmount() {
+    clearInterval(this.myInterval)
     document.removeEventListener("mousedown", this.handleClickOutside);
   }
 
@@ -147,8 +149,6 @@ export default class BasicSpeedDial extends React.Component {
       token: process.env.REACT_APP_EXTEN_TOKEN,
       type: process.env.REACT_APP_EXTEN_TYPE
     });
-
-    console.log("this.state.input>>>", this.state.input)
 
     var requestOptions = {
       method: 'POST',
@@ -259,7 +259,7 @@ export default class BasicSpeedDial extends React.Component {
     const existingScript = document.getElementById("voipx-inf-webphone");
     if (!existingScript) {
       const script = document.createElement("script");
-      script.src = "https://onx.co.id/voip-bpjs/js/sipML.js";
+      script.src = process.env.REACT_APP_SCRIPT_SRC;
       script.id = "voipx-inf-webphone";
       document.body.appendChild(script);
       script.onload = () => {
@@ -269,22 +269,48 @@ export default class BasicSpeedDial extends React.Component {
     if (existingScript && callback) callback();
   }
 
-  rendererCountdown({ hours, minutes, seconds, completed }) {
-    let secondWithPadding = seconds
-    let minuteWithPadding = minutes
+  startTimer() {
+    this.myInterval = setInterval(() => {
+      const { seconds, minutes } = this.state
 
-    if (seconds < 10) {
-      secondWithPadding = '0' + seconds
-    }
-    if (minutes < 10) {
-      minuteWithPadding = '0' + minutes
-    }
-
-    return (
-      <Typography sx={{ mt: 1 }} textAlign="center" fontSize="bold">
-        {minuteWithPadding}:{secondWithPadding}
-      </Typography>
-    )
+      if (seconds > 0) {
+        this.setState(({ seconds }) => ({
+          seconds: seconds - 1
+        }))
+        if (this.state.seconds <= 30 && this.state.seconds > 20) {
+          this.setState({
+            oSipLastEvent: {
+              type: '',
+              description: "(2/4) Securing connection",
+            },
+          });
+        } else if (this.state.seconds <= 20 && this.state.seconds > 10) {
+          this.setState({
+            oSipLastEvent: {
+              type: '',
+              description: "(3/4) Connecting to PABX",
+            },
+          });
+        } else if (this.state.seconds <= 10 && this.state.seconds > 0) {
+          this.setState({
+            oSipLastEvent: {
+              type: '',
+              description: "(4/4) Connecting to IVR",
+            },
+          });
+        }
+      }
+      if (seconds === 0) {
+        if (minutes === 0) {
+          clearInterval(this.myInterval)
+        } else {
+          this.setState(({ minutes }) => ({
+            minutes: minutes - 1,
+            seconds: 59
+          }))
+        }
+      }
+    }, 1000)
   }
 
   async initiateWebphone(e) {
@@ -348,22 +374,22 @@ export default class BasicSpeedDial extends React.Component {
 
     if (e.type === "started") {
 
-      const oSipSessionRegister = this.state.oSipStack.newSession('register', {
-        expires: 200,
-        events_listener: { events: '*', listener: this.onSipEventSession },
-        sip_caps: [
-          { name: '+g.oma.sip-im', value: null },
-          //{ name: '+sip.ice' }, // rfc5768: FIXME doesn't work with Polycom TelePresence
-          { name: '+audio', value: null },
-          { name: 'language', value: '"id,en"' }
-        ]
-      });
+      // const oSipSessionRegister = this.state.oSipStack.newSession('register', {
+      //   expires: 200,
+      //   events_listener: { events: '*', listener: this.onSipEventSession },
+      //   sip_caps: [
+      //     { name: '+g.oma.sip-im', value: null },
+      //     //{ name: '+sip.ice' }, // rfc5768: FIXME doesn't work with Polycom TelePresence
+      //     { name: '+audio', value: null },
+      //     { name: 'language', value: '"id,en"' }
+      //   ]
+      // });
 
-      this.setState({
-        oSipSessionRegister: oSipSessionRegister
-      })
+      // this.setState({
+      //   oSipSessionRegister: oSipSessionRegister
+      // })
 
-      this.state.oSipSessionRegister.register();
+      // this.state.oSipSessionRegister.register();
 
       const oConfigCall = {
         audio_remote: document.getElementById("audio_remote"),
@@ -397,11 +423,13 @@ export default class BasicSpeedDial extends React.Component {
     }
     if (e.type === "m_permission_accepted") {
       this.setState({
+        showCountdown: true,
         oSipLastEvent: {
           type: e.type,
-          description: "Call in progress, please wait",
+          description: "(1/4) Call in progress, please wait",
         },
       });
+      this.startTimer();
     }
     if (e.type === "stopped") {
       this.setState({
@@ -432,10 +460,11 @@ export default class BasicSpeedDial extends React.Component {
         description: e.description,
       },
     });
-    if(e.type === "i_ao_request"){
+    if (e.type === "i_ao_request") {
       this.setState({
         showCountdown: false
       })
+      clearInterval(this.myInterval)
     }
     if (e.type === "m_stream_audio_remote_added") {
       this.setState({
@@ -503,12 +532,12 @@ export default class BasicSpeedDial extends React.Component {
               position: "fixed",
               bottom: 100,
               right: 10,
-              height: "500px !important",
+              height: "380px !important",
               width: "350px !important",
             }}
           >
             <CardHeader
-              sx={{ bgcolor: "#E6232C" }}
+              sx={{ bgcolor: process.env.REACT_APP_COLOR_PRIMARY }}
               avatar={
                 <Avatar sx={{ bgcolor: "#01A3DE" }}>
                   <ContactSupportIcon />
@@ -559,27 +588,14 @@ export default class BasicSpeedDial extends React.Component {
                     size="small"
                     margin="dense"
                   />
-                  <CssTextField
-                    disabled={this.state.isLoadingSetupWebphone}
-                    fullWidth
-                    required
-                    id="form-message"
-                    color="info"
-                    label="Message"
-                    size="small"
-                    margin="dense"
-                    multiline
-                    rows={4}
-                  />
                   <Checkbox required />
                   <Link href="#">
                     <Typography
                       component="span"
-                      fontStyle="italic"
                       fontSize={12}
                       onClick={() => this.setState({ modalAgree: true })}
                     >
-                      I Agree with terms & conditions
+                      Terms & conditions
                     </Typography>
                   </Link>
                   <Button
@@ -620,14 +636,14 @@ export default class BasicSpeedDial extends React.Component {
         >
           <SpeedDialAction
             sx={{
-              bgcolor: "#E6232C",
+              bgcolor: process.env.REACT_APP_COLOR_PRIMARY,
               color: "#FFFFFF",
               "&:hover": {
-                bgcolor: "#E6232C",
+                bgcolor: process.env.REACT_APP_COLOR_PRIMARY,
                 color: "#FFFFFF",
               },
               "&:focus": {
-                bgcolor: "#E6232C",
+                bgcolor: process.env.REACT_APP_COLOR_PRIMARY,
                 color: "#FFFFFF",
               },
             }}
@@ -652,13 +668,15 @@ export default class BasicSpeedDial extends React.Component {
             >
               {this.state.oSipDTMFPressed}
             </Typography>
-            <Typography textAlign="center" fontStyle={"italic"}>
+            <Typography textAlign="center">
               {this.state.oSipLastEvent.description}
             </Typography>
-            <>{this.state.showCountdown && <Countdown
-              date={Date.now() + 60000}
-              renderer={this.rendererCountdown}
-            />}</>
+            <>{this.state.showCountdown &&
+              <Typography sx={{ mt: 1 }} textAlign="center" fontSize="bold">
+                0{this.state.minutes}:{this.state.seconds < 10 ? `0${this.state.seconds}` : this.state.seconds}
+              </Typography>
+            }
+            </>
             <Grid
               container
               rowSpacing={1}
