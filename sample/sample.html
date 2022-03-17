@@ -786,6 +786,8 @@
                     {
                         // catch exception for IE (DOM not ready)
                         try {
+                            console.log('this.newSession', this.newSession)
+                            console.log('this', this)
                             // LogIn (REGISTER) as soon as the stack finish starting
                             oSipSessionRegister = this.newSession('register', {
                                 expires: 200,

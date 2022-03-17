@@ -101,21 +101,18 @@ export default class BasicSpeedDial extends React.Component {
       openSpeedDial: false,
       openModal: false,
       oSipStack: null,
+      oSipSessionRegister: null,
       oSipLastEvent: {
         type: "",
         description: "",
       },
       oSipSessionCall: null,
-      // oSipSessionRegister: null,
       oSipIsMuted: false,
       oSipIsConnected: false,
       oSipIsCallFinished: false,
       oSipIsMutedError: "",
       oSipDTMFPressed: "",
       modalAgree: false,
-      showCountdown: false,
-      minutes: 0,
-      seconds: 40,
     };
 
     this.wrapperRef = React.createRef();
@@ -123,10 +120,11 @@ export default class BasicSpeedDial extends React.Component {
     this.handleClickOutside = this.handleClickOutside.bind(this);
     this.onSipEventStack = this.onSipEventStack.bind(this);
     this.onSipEventSession = this.onSipEventSession.bind(this);
+    this.onSipRegisterSession = this.onSipRegisterSession.bind(this);
+    this.onConfigCallSession = this.onConfigCallSession.bind(this);
     this.onSipCallSession = this.onSipCallSession.bind(this);
     this.handleInputName = this.handleInputName.bind(this);
     this.handleInputEmail = this.handleInputEmail.bind(this);
-    this.startTimer = this.startTimer.bind(this);
   }
 
   componentDidMount() {
@@ -158,6 +156,47 @@ export default class BasicSpeedDial extends React.Component {
     };
 
     return fetch(process.env.REACT_APP_EXTEN_URL, requestOptions)
+      .then(response => response.text())
+      .then(result => {
+        const decryptText = this.decrypt(result)
+        const decrypted = JSON.parse(decryptText)
+
+        console.log("decrypted>>>", decrypted)
+
+        this.setState({
+          reqExten: {
+            token: decrypted.token,
+            exten: decrypted.exten,
+            secret: decrypted.secret,
+            callto: decrypted.callto,
+            sip: decrypted.sip,
+            rtc: decrypted.rtc,
+            api: decrypted.api,
+          },
+        });
+
+      })
+      .catch(error => console.log('error', error));
+  }
+
+  requestCallout() {
+    var myHeaders = new Headers();
+    myHeaders.append("Authorization", "Basic ZGVtbzoxbmYwbWVkaUA=");
+    myHeaders.append("Content-Type", "application/json");
+
+    var raw = JSON.stringify({
+      call_id: Math.floor(new Date().getTime() / 1000),
+      exten: this.state.reqExten.exten,
+    });
+
+    var requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      body: raw,
+      redirect: 'follow'
+    };
+
+    return fetch(process.env.REACT_APP_CALLOUT_URL, requestOptions)
       .then(response => response.text())
       .then(result => {
         const decryptText = this.decrypt(result)
@@ -269,50 +308,6 @@ export default class BasicSpeedDial extends React.Component {
     if (existingScript && callback) callback();
   }
 
-  startTimer() {
-    this.myInterval = setInterval(() => {
-      const { seconds, minutes } = this.state
-
-      if (seconds > 0) {
-        this.setState(({ seconds }) => ({
-          seconds: seconds - 1
-        }))
-        if (this.state.seconds <= 30 && this.state.seconds > 20) {
-          this.setState({
-            oSipLastEvent: {
-              type: '',
-              description: "(2/4) Securing connection",
-            },
-          });
-        } else if (this.state.seconds <= 20 && this.state.seconds > 10) {
-          this.setState({
-            oSipLastEvent: {
-              type: '',
-              description: "(3/4) Connecting to PABX",
-            },
-          });
-        } else if (this.state.seconds <= 10 && this.state.seconds > 0) {
-          this.setState({
-            oSipLastEvent: {
-              type: '',
-              description: "(4/4) Connecting to IVR",
-            },
-          });
-        }
-      }
-      if (seconds === 0) {
-        if (minutes === 0) {
-          clearInterval(this.myInterval)
-        } else {
-          this.setState(({ minutes }) => ({
-            minutes: minutes - 1,
-            seconds: 59
-          }))
-        }
-      }
-    }, 1000)
-  }
-
   async initiateWebphone(e) {
     e.preventDefault();
 
@@ -374,63 +369,78 @@ export default class BasicSpeedDial extends React.Component {
 
     if (e.type === "started") {
 
-      // const oSipSessionRegister = this.state.oSipStack.newSession('register', {
-      //   expires: 200,
-      //   events_listener: { events: '*', listener: this.onSipEventSession },
-      //   sip_caps: [
-      //     { name: '+g.oma.sip-im', value: null },
-      //     //{ name: '+sip.ice' }, // rfc5768: FIXME doesn't work with Polycom TelePresence
-      //     { name: '+audio', value: null },
-      //     { name: 'language', value: '"id,en"' }
-      //   ]
-      // });
+      console.log("this", this.state.oSipStack)
 
-      // this.setState({
-      //   oSipSessionRegister: oSipSessionRegister
-      // })
+      const oSipSessionRegister = this.state.oSipStack.newSession('register',
+        {
+          expires: 200,
+          events_listener: { events: '*', listener: this.onSipRegisterSession },
+          sip_caps: [
+            { name: '+g.oma.sip-im', value: null },
+            //{ name: '+sip.ice' }, // rfc5768: FIXME doesn't work with Polycom TelePresence
+            { name: '+audio', value: null },
+            { name: 'language', value: '"en,id"' }
+          ]
+        })
 
-      // this.state.oSipSessionRegister.register();
+      console.log('oSipSessionRegister', oSipSessionRegister)
 
-      const oConfigCall = {
-        audio_remote: document.getElementById("audio_remote"),
-        bandwidth: undefined,
-        events_listener: {
-          events: "*",
-          listener: this.onSipEventSession,
-        },
-        screencast_window_id: 0,
-        sip_caps: [
-          { name: "+g.oma.sip-im" },
-          { name: "language", value: '"en,fr"' },
-        ],
-      };
-      const oSipSessionCall = this.state.oSipStack.newSession(
-        "call-audio",
-        oConfigCall
-      );
+      this.setState({ oSipSessionRegister: oSipSessionRegister })
 
-      this.setState({
-        oSipSessionCall: oSipSessionCall,
-      });
 
-      const callResult = this.state.oSipSessionCall.call(this.state.reqExten.callto, {
-        events_listener: {
-          events: "*",
-          listener: this.onSipCallSession,
-        },
-      });
-      console.log("callResult", callResult);
+      console.log('this.state.oSipSessionRegister', this.state.oSipSessionRegister)
+
+      const register = this.state.oSipSessionRegister.register()
+
+      console.log('register', register)
     }
+
+    if (e.type === 'i_new_call') {
+      if (this.state.oSipSessionCall) {
+        window.alert('hi')
+        // do not accept the incoming call if we're already 'in call'
+        e.newSession.hangup(); // comment this line for multi-line support
+      } else {
+        const oConfigCall = {
+          audio_remote: document.getElementById("audio_remote"),
+          bandwidth: undefined,
+          events_listener: {
+            events: "*",
+            listener: this.onSipCallSession,
+          },
+          screencast_window_id: 0,
+          sip_caps: [
+            { name: "+g.oma.sip-im" },
+            { name: "language", value: '"en,fr"' },
+          ],
+        }
+
+        const oSipSessionCall = e.newSession;
+
+        this.setState({
+          oSipSessionCall: oSipSessionCall
+        })
+
+        this.state.oSipSessionCall.setConfiguration(oConfigCall);
+        console.log('this.state.oSipSessionCall.getRemoteFriendlyName()', this.state.oSipSessionCall.getRemoteFriendlyName())
+        // window.alert('kocaaa')
+
+
+        console.log('oConfigCall', oConfigCall)
+        this.state.oSipSessionCall.accept(oConfigCall);
+      }
+    }
+
+
     if (e.type === "m_permission_accepted") {
       this.setState({
-        showCountdown: true,
         oSipLastEvent: {
           type: e.type,
-          description: "(1/4) Call in progress, please wait",
+          description: "Call Connected",
         },
       });
-      this.startTimer();
     }
+
     if (e.type === "stopped") {
       this.setState({
         oSipLastEvent: {
@@ -439,6 +449,18 @@ export default class BasicSpeedDial extends React.Component {
         },
       });
     }
+  }
+
+
+  onConfigCallSession(e) {
+    console.log("Event onConfigCallSession", e);
+
+    this.setState({
+      oSipLastEvent: {
+        type: e.type,
+        description: e.description,
+      },
+    });
   }
 
   onSipEventSession(e) {
@@ -451,6 +473,20 @@ export default class BasicSpeedDial extends React.Component {
     });
   }
 
+  onSipRegisterSession(e) {
+    console.log("onSipRegisterSession e", e)
+    this.setState({
+      oSipLastEvent: {
+        type: e.type,
+        description: e.description,
+      },
+    });
+
+    if (e.type === 'connected') {
+      this.requestCallout()
+    }
+  }
+
   onSipCallSession(e) {
     console.log("Event onSipCallSession", e);
 
@@ -460,12 +496,7 @@ export default class BasicSpeedDial extends React.Component {
         description: e.description,
       },
     });
-    if (e.type === "i_ao_request") {
-      this.setState({
-        showCountdown: false
-      })
-      clearInterval(this.myInterval)
-    }
+
     if (e.type === "m_stream_audio_remote_added") {
       this.setState({
         oSipIsConnected: true,
@@ -509,17 +540,27 @@ export default class BasicSpeedDial extends React.Component {
 
   sipToggleMute() {
     if (this.state.oSipSessionCall) {
+      let { oSipIsMuted } = { ...this.state }
+      console.log('oSipIsMuted', oSipIsMuted)
+      oSipIsMuted = !oSipIsMuted
+      console.log('oSipIsMuted', oSipIsMuted)
+
+      // console.log('oSipIsMuted', oSipIsMuted)
+      // this.setState({ oSipIsMuted: !oSipIsMuted });
+      // console.log('this.state.oSipIsMuted', this.state.oSipIsMuted)
       const toggleMuteSuccess = this.state.oSipSessionCall.mute(
         "audio",
-        this.state.oSipIsMuted
+        oSipIsMuted
       );
+
+      this.setState({ oSipIsMuted: oSipIsMuted });
+
+      console.log('toggleMuteSuccess', toggleMuteSuccess)
 
       if (toggleMuteSuccess !== 0) {
         this.setState({ oSipIsMutedError: "Mute / Unmute failed" });
         return;
       }
-
-      this.setState({ oSipIsMuted: !this.state.oSipIsMuted });
     }
   }
 
@@ -671,12 +712,6 @@ export default class BasicSpeedDial extends React.Component {
             <Typography textAlign="center">
               {this.state.oSipLastEvent.description}
             </Typography>
-            <>{this.state.showCountdown &&
-              <Typography sx={{ mt: 1 }} textAlign="center" fontSize="bold">
-                0{this.state.minutes}:{this.state.seconds < 10 ? `0${this.state.seconds}` : this.state.seconds}
-              </Typography>
-            }
-            </>
             <Grid
               container
               rowSpacing={1}
